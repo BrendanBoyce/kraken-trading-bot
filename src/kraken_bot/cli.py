@@ -25,6 +25,16 @@ def emit(value: Any) -> None:
 
 async def run(args: argparse.Namespace) -> None:
     assets = load_assets(args.config)
+    if args.command == "research-walk-forward":
+        from .walk_forward import walk_forward
+        # Archive research is independent of the live collector's database lock.
+        with CandleStore(":memory:") as store:
+            report = walk_forward(store, assets, args.archive, args.output,
+                datetime.strptime(args.start, "%Y-%m-%d").replace(tzinfo=UTC),
+                datetime.strptime(args.end, "%Y-%m-%d").replace(tzinfo=UTC),
+                args.horizon, args.train_days, args.test_days)
+        print(json.dumps({"report": str(args.output), "aggregate": report["aggregate"]}, indent=2))
+        return
     if args.command == "research":
         from .research import research
         with CandleStore(args.db, read_only=True) as store:
@@ -108,6 +118,14 @@ def main() -> None:
     ohlc.add_argument("--since", type=int)
     database = argparse.ArgumentParser(add_help=False)
     database.add_argument("--db", type=Path, default=Path("data/market.duckdb"))
+    walk = commands.add_parser("research-walk-forward", help="Evaluate archive baseline over chronological periods")
+    walk.add_argument("--archive", type=Path, default=Path("data/archives/Kraken_OHLCVT_2026Q2.zip"))
+    walk.add_argument("--start", default="2026-04-01")
+    walk.add_argument("--end", default="2026-07-01")
+    walk.add_argument("--horizon", type=int, default=60)
+    walk.add_argument("--train-days", type=int, default=28)
+    walk.add_argument("--test-days", type=int, default=7)
+    walk.add_argument("--output", type=Path, default=Path("data/walk-forward-report.json"))
     analysis = commands.add_parser("research", parents=[database], help="Offline historical regression baseline")
     analysis.add_argument("--start", default="2026-04-01", help="UTC date, inclusive")
     analysis.add_argument("--end", default="2026-07-01", help="UTC date, exclusive")

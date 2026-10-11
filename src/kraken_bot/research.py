@@ -8,10 +8,15 @@ from pathlib import Path
 FEATURES = ('return_1m', 'return_15m', 'return_60m', 'range_60m', 'volume_ratio')
 
 
-def samples(store, symbol, start, end, horizon=60):
+def samples(store, symbol, start, end, horizon=60, *, archive_mode=False):
     # Unique minute keys plus exact timestamp spans prove contiguous windows.
+    source = 'research_source' if archive_mode else 'candles'
+    observed = 'observed' if archive_mode else 'TRUE'
+    observed_filter = 'AND observed AND future_observed' if archive_mode else ''
     query = f"""WITH history AS (
-      SELECT timestamp, CAST(close AS DOUBLE) AS price,
+      SELECT timestamp, {observed} AS observed,
+        lead({observed},{horizon}) OVER w AS future_observed,
+        CAST(close AS DOUBLE) AS price,
         lag(CAST(close AS DOUBLE),1) OVER w AS p1,
         lag(CAST(close AS DOUBLE),15) OVER w AS p15,
         lag(CAST(close AS DOUBLE),60) OVER w AS p60,
@@ -23,7 +28,7 @@ def samples(store, symbol, start, end, horizon=60):
         lead(CAST(close AS DOUBLE),{horizon}) OVER w AS future_price,
         lead(timestamp,{horizon}) OVER w AS future_stamp,
         max(CAST(high AS DOUBLE)) OVER future AS future_high
-      FROM candles WHERE symbol=? AND timestamp>=? AND timestamp<?
+      FROM {source} WHERE symbol=? AND timestamp>=? AND timestamp<?
       WINDOW w AS (ORDER BY timestamp),
         past AS (ORDER BY timestamp ROWS BETWEEN 59 PRECEDING AND CURRENT ROW),
         last15 AS (ORDER BY timestamp ROWS BETWEEN 14 PRECEDING AND CURRENT ROW),
@@ -35,6 +40,7 @@ def samples(store, symbol, start, end, horizon=60):
         AND future_stamp-timestamp=INTERVAL '{horizon} minutes'
         AND epoch(timestamp+INTERVAL '1 minute') % ({horizon}*60)=0
         AND price>0 AND p1>0 AND p15>0 AND p60>0 AND v60>v15
+        {observed_filter}
       ORDER BY timestamp"""
     return [(stamp+timedelta(minutes=1), tuple(values[:5]), values[5], values[6])
             for stamp, *values in store.connection.execute(query, [symbol,start,end]).fetchall()

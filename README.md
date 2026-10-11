@@ -421,3 +421,43 @@ survivorship bias and correlated assets limit conclusions. A single holdout is
 preliminary research, not a validated trading backtest. Further experiments need
 walk-forward evaluation and fresh unseen periods rather than repeatedly tuning
 against this same holdout.
+
+### Archive-aware walk-forward evaluation
+
+```sh
+kraken-bot --config config/assets.json research-walk-forward
+```
+
+This command works directly from the downloaded Q2 archive in a separate in-memory
+DuckDB connection, so it can run while the live collector is using the main database.
+It writes `data/walk-forward-report.json` and `.md` and leaves stored candles unchanged.
+One asset's CSV and temporary research table are processed at a time, using the
+existing two-thread/512 MB DuckDB limits. No additional numerical package is needed.
+
+[Kraken documents absent archive minutes as no-trade periods](https://support.kraken.com/articles/360047124832-downloadable-historical-ohlcvt-open-high-low-close-volume-trades-data).
+Only inside an actual archive CSV's first/last recorded timestamps, temporary research
+marks carry the most recent known close forward, with zero volume and flat price bounds
+for omitted minutes. They never look forward, infer prices before the first record,
+fill collector outages, extend beyond manifest coverage, or become stored candles.
+Both prediction-reference and target-reference minutes must contain recorded trades.
+That future target eligibility is known retrospectively and can bias evaluation;
+it is not an executable rule or proof that an exit could have filled.
+
+The default starts with 28 days of training, then evaluates successive seven-day
+periods with expanding training history. Each fold refits the same ridge baseline
+and train-only scaler; training target end times cannot exceed that fold's cutoff.
+Test labels must end within the test period. Target periods do not overlap per pair.
+Use `--train-days`, `--test-days`, `--horizon`, `--start`, `--end`, `--archive` or
+`--output` to change the experiment explicitly. Requested dates outside archive
+coverage are rejected. Outputs use `.json` plus a sibling `.md` report.
+
+Compare the model with zero-return, pooled training-average and per-asset
+training-average baselines. The latter falls back to the pooled mean for an asset
+without earlier training observations. Reports show each period, every asset's
+coverage, carried-minute counts and future +10% high observations. The archive
+SHA-256 is recorded for reproducibility, not checked against an official checksum.
+
+These are exploratory results on Q2 data already examined in the initial holdout
+study, not a fresh final validation set. Correlated assets, today's selected asset
+list, missing market-cap information and unavailable execution costs remain limits.
+A positive result here would still need later, genuinely untouched data.
