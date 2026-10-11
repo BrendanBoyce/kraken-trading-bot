@@ -1,6 +1,6 @@
 # Kraken market-data bot
 
-Stages 1–3 of a modular Python cryptocurrency research project. Uses only
+Stages 1–4 of a modular Python cryptocurrency research project. Uses only
 public Kraken Spot endpoints. No credentials, account access or order placement.
 
 ## Setup on macOS / Apple Silicon
@@ -88,16 +88,19 @@ src/kraken_bot/exchanges/kraken.py  Public REST/WebSocket adapter
 src/kraken_bot/cli.py       Terminal collector and inspection commands
 src/kraken_bot/storage.py   DuckDB schema, deduplication, gaps, aggregation, exports
 src/kraken_bot/ingestion.py Continuous completed-candle reconciliation
+src/kraken_bot/indicators.py Indicator calculations over contiguous prices
+src/kraken_bot/scanner.py   Configurable five-minute market scanner
 tests/                     Parsing, errors, retry and reconnection tests
 ```
 
-Exchange-specific parsing stays in the adapter. Future scanning,
+Exchange-specific parsing stays in the adapter. Future
 strategies, risk, backtesting and simulation can consume the shared records and
-MarketData protocol. Stages 4–8 are not implemented. NumPy and Polars will be
+MarketData protocol. Stages 5–8 are not implemented. NumPy and Polars will be
 introduced when needed. Funded balance, targets and drawdown rules are not implemented
 or independently verified at this stage.
 
-Git is local; no GitHub repository, remote or push is created automatically.
+Git remote `origin` points to the private `BrendanBoyce/kraken-trading-bot`
+repository. Author and committer metadata use the GitHub noreply identity.
 
 ## Stage 3: historical database
 
@@ -221,6 +224,77 @@ DuckDB references: [Python API](https://duckdb.org/docs/stable/clients/python/ov
 [conflict handling](https://duckdb.org/docs/current/sql/statements/insert),
 [Parquet](https://duckdb.org/docs/stable/data/parquet/overview).
 
+## Stage 4: market scanner
+
+The scanner reports market conditions for the asset allowlist using completed
+five-minute candles derived from the stored one-minute data. It does not generate
+BUY/SELL/HOLD decisions, simulate positions or place orders.
+
+```sh
+# Snapshot: stop any ingestion process first, then inspect the saved database.
+kraken-bot --config config/assets.json scan
+kraken-bot scan --json
+
+# Continuous: ingestion and scanning share one writer process.
+kraken-bot --config config/assets.json scan --live --scanner-config config/scanner.json
+```
+
+**Use `scan --live` instead of running `ingest` in another terminal on the same
+database.** Stop the existing collector with Ctrl-C first. Live scanning polls
+Kraken for completed minutes, reconciles them into DuckDB, then scans after each
+pass. The table is printed at startup and when a completed five-minute candle,
+available history count or quality flag changes. It stays quiet on unchanged
+passes, although ingestion logs still appear each minute. Ctrl-C stops both
+collection and scanning. Read-only snapshots, inspections and exports should be
+run after stopping this writer.
+
+Edit `config/scanner.json` and pass `--scanner-config` to change settings. Without
+it, the same defaults are built in:
+
+| Field | Definition |
+| --- | --- |
+| RSI14 | Wilder RSI on closing prices, initial 14-change SMA followed by Wilder smoothing. A flat series is defined as 50. |
+| MACD / HIST | EMA12 minus EMA26, nine-period EMA signal, and line minus signal. JSON also includes the signal value. |
+| SMA20 / SMA50 | Mean of the last 20 / 50 five-minute closes. |
+| EMA20 | Exponential average, alpha 2/21, seeded from the first 20-close SMA. |
+| VOL% | Sample standard deviation of the last 20 five-minute log returns, expressed as percent per candle; not annualized. |
+| VOLUMEΔ% | Latest five-minute base-asset volume versus the mean volume of the preceding 20 candles, in percent. |
+
+MACD EMA seeds use their respective initial-period SMAs; its signal seed is the
+mean of the first nine available MACD values. Calculations use at most the latest
+300 derived candles (25 hours) to bound CPU and memory. EMA/RSI values depend on
+this starting point and can differ slightly from platforms using longer histories
+or other seed conventions. No additional calculation dependency is required for
+these short sequences. Stored prices retain decimal precision; indicator
+calculations and JSON indicator values use floating point.
+
+Missing values appear as `—` in the table or `null` in JSON. Default indicators
+need up to 50 contiguous candles (4 hours 10 minutes). The scanner never bridges
+a missing five-minute bucket: it resets calculations to the contiguous suffix
+after the last hole. Buckets with missing source minutes are already excluded
+by the aggregation views.
+
+Status flags:
+
+- `stale`: the last completed candle's end is more than 10 minutes old.
+- `gap_in_lookback`: a bucket is missing or a tracked source gap overlaps the
+  selected history through the current time.
+- `insufficient_history`: at least one configured calculation lacks its minimum
+  contiguous history. Individual ready calculations remain visible.
+- `no_data`: no completed five-minute candles are available for this pair.
+- `zero_volume_baseline`: prior comparison volumes are all zero; volume change
+  is undefined rather than infinite.
+- `invalid_data` or `future_data_excluded`: nonpositive/nonfinite prices or
+  invalid volumes prevent calculations; candles ending in the future are excluded.
+
+`ok` means these data checks passed; it is not a trading recommendation. Snapshot
+mode accesses no network and leaves the database unchanged. Live mode retains
+the Stage 3 REST limits, recovery and gap policies and can use the same configurable
+allowlist for approximately 50 pairs.
+
+References: [RSI definition](https://www.fidelity.com/learning-center/trading-investing/technical-analysis/technical-indicator-guide/RSI),
+[DuckDB concurrency](https://duckdb.org/docs/current/connect/concurrency).
+
 ## Verification
 
 `pytest` runs offline tests, including a local WebSocket server for disconnect,
@@ -254,3 +328,11 @@ seconds. Reconciling overlapping windows with one new candle for each asset took
 0.83 seconds after skipping inserts for existing timestamps. This measures local
 storage work, not 50 real exchange subscriptions or network throughput. The
 serialized one-request-per-second REST budget remains the main ongoing constraint.
+
+Stage 4 verification: **33 tests passed**, including known RSI/EMA/MACD results,
+volume and volatility formulas, warm-up limits, gaps, stale/future/invalid data,
+configuration validation, deduplicated output and same-connection live scanning.
+A snapshot correctly flagged the stopped collector's history as stale. Live
+scanning backfilled 22 available minutes per asset, displayed fresh five-minute
+conditions, and appended the next minute on the following pass without repeating
+an unchanged table. The verification process was stopped cleanly with Ctrl-C.

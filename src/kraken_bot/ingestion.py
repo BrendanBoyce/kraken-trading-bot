@@ -3,7 +3,7 @@
 import asyncio
 import logging
 import time
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
 
 from .exchanges.kraken import TransientError
@@ -14,7 +14,8 @@ LOG = logging.getLogger(__name__)
 
 
 async def collect_candles(client: MarketData, store: CandleStore, symbols: Sequence[str],
-                          *, once: bool = False, poll_seconds: float = 60) -> None:
+                          *, once: bool = False, poll_seconds: float = 60,
+                          on_pass: Callable[[], None] | None = None) -> None:
     if poll_seconds < 60:
         raise ValueError("Candle polling period must be at least 60 seconds")
     failed: set[str] = set()
@@ -44,6 +45,8 @@ async def collect_candles(client: MarketData, store: CandleStore, symbols: Seque
                                 gap.missing_minutes, gap.status)
             if not batch.candles:
                 LOG.warning("%s returned no candles; historical coverage remains unknown", symbol)
+        if on_pass is not None:
+            on_pass()
         if once:
             if failures_this_pass:
                 raise TransientError(f"Ingestion incomplete for: {', '.join(failures_this_pass)}")

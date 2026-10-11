@@ -14,6 +14,7 @@ from .config import load_assets, normalize_symbol
 from .exchanges.kraken import KrakenClient, KrakenError
 from .ingestion import collect_candles
 from .storage import CandleStore
+from .scanner import ScanReporter, load_scanner_config, scan
 
 
 def emit(value: Any) -> None:
@@ -22,6 +23,17 @@ def emit(value: Any) -> None:
 
 async def run(args: argparse.Namespace) -> None:
     assets = load_assets(args.config)
+    if args.command == "scan":
+        settings = load_scanner_config(args.scanner_config)
+        reporter = ScanReporter(settings, json_output=args.json)
+        with CandleStore(args.db, read_only=not args.live) as store:
+            if args.live:
+                async with KrakenClient() as client:
+                    await collect_candles(client, store, assets,
+                                          on_pass=lambda: reporter.report(scan(store, assets, settings)))
+            else:
+                reporter.report(scan(store, assets, settings))
+        return
     if args.command in {"db-summary", "db-gaps", "db-show", "export"}:
         with CandleStore(args.db, read_only=True) as store:
             if args.command == "db-summary":
@@ -84,6 +96,10 @@ def main() -> None:
     ingest = commands.add_parser("ingest", parents=[database], help="Store completed 1m candles continuously")
     ingest.add_argument("--once", action="store_true", help="Reconcile available history and stop")
     ingest.add_argument("--poll-seconds", type=float, default=60)
+    scanner = commands.add_parser("scan", parents=[database], help="Report indicators from completed 5m candles")
+    scanner.add_argument("--live", action="store_true", help="Collect 1m candles and scan in one process")
+    scanner.add_argument("--scanner-config", type=Path, help="JSON indicator periods and freshness settings")
+    scanner.add_argument("--json", action="store_true", help="Emit structured scanner rows")
     commands.add_parser("db-summary", parents=[database], help="Show stored 1m history coverage")
     commands.add_parser("db-gaps", parents=[database], help="Show detected missing candle ranges")
     show = commands.add_parser("db-show", parents=[database], help="Inspect stored or aggregated candles")

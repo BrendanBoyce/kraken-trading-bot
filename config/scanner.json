@@ -1,0 +1,13 @@
+{
+  "rsi_period": 14,
+  "macd_fast": 12,
+  "macd_slow": 26,
+  "macd_signal": 9,
+  "sma_fast": 20,
+  "sma_slow": 50,
+  "ema_period": 20,
+  "volatility_period": 20,
+  "volume_period": 20,
+  "lookback": 300,
+  "stale_minutes": 10
+}
