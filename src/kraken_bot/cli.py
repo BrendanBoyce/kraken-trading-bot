@@ -4,6 +4,7 @@ import argparse
 import asyncio
 import json
 import logging
+import zipfile
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
@@ -23,6 +24,11 @@ def emit(value: Any) -> None:
 
 async def run(args: argparse.Namespace) -> None:
     assets = load_assets(args.config)
+    if args.command == "import-history":
+        from .history import import_archive
+        with CandleStore(args.db) as store:
+            import_archive(store, args.archive, assets, args.report)
+        return
     if args.command == "scan":
         settings = load_scanner_config(args.scanner_config)
         reporter = ScanReporter(settings, json_output=args.json)
@@ -93,6 +99,9 @@ def main() -> None:
     ohlc.add_argument("--since", type=int)
     database = argparse.ArgumentParser(add_help=False)
     database.add_argument("--db", type=Path, default=Path("data/market.duckdb"))
+    history = commands.add_parser("import-history", parents=[database], help="Import allowlisted 1m candles from a Kraken ZIP archive")
+    history.add_argument("archive", type=Path)
+    history.add_argument("--report", type=Path, default=Path("data/history-import-report.json"))
     ingest = commands.add_parser("ingest", parents=[database], help="Store completed 1m candles continuously")
     ingest.add_argument("--once", action="store_true", help="Reconcile available history and stop")
     ingest.add_argument("--poll-seconds", type=float, default=60)
@@ -120,7 +129,7 @@ def main() -> None:
         asyncio.run(run(args))
     except KeyboardInterrupt:
         pass
-    except (KrakenError, ValueError, KeyError, OSError, duckdb.Error) as exc:
+    except (KrakenError, ValueError, KeyError, OSError, duckdb.Error, zipfile.BadZipFile) as exc:
         parser.exit(1, f"Error: {exc}\n")
 
 

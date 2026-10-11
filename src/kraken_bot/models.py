@@ -33,7 +33,7 @@ class Candle:
     high: Decimal
     low: Decimal
     close: Decimal
-    vwap: Decimal
+    vwap: Decimal | None
     volume: Decimal
     trades: int
     complete: bool

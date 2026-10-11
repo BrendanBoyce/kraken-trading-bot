@@ -352,3 +352,40 @@ A snapshot correctly flagged the stopped collector's history as stale. Live
 scanning backfilled 22 available minutes per asset, displayed fresh five-minute
 conditions, and appended the next minute on the following pass without repeating
 an unchanged table. The verification process was stopped cleanly with Ctrl-C.
+
+### Historical archive import
+
+Kraken publishes [official OHLCVT archives](https://support.kraken.com/articles/360047124832-downloadable-historical-ohlcvt-open-high-low-close-volume-trades-data).
+The initial import uses the latest published quarter, April–June 2026, rather than
+all years and all markets. Stop the scanner with Ctrl-C before importing or inspecting
+DuckDB from another process.
+
+```sh
+kraken-bot --config config/assets.json import-history data/archives/Kraken_OHLCVT_2026Q2.zip
+kraken-bot db-summary
+cat data/history-import-report.json
+kraken-bot export data/btc-history.parquet --symbol BTC/USD
+kraken-bot --config config/assets.json scan --live
+```
+
+The importer selects only allowlisted one-minute USD CSVs, processes one file at a
+time, validates rows, and commits each pair atomically. Repeating an import ignores
+existing keys and preserves existing live prices. An interrupted run can be repeated.
+The JSON report records the archive SHA-256, its manifest, per-pair dates and counts,
+missing pairs, and coverage gaps before existing data. SHA-256 records provenance;
+it is not a comparison against a Kraken-published checksum for this quarterly ZIP.
+ZIP CRC validation checks extracted members. Archive and reports stay under ignored
+`data/` and are not pushed to GitHub.
+
+Historical files contain OHLC, volume and trade count, but no VWAP; historical VWAP
+is NULL. Aggregated VWAP remains NULL when a contributing traded minute lacks VWAP.
+Prices and volumes use DECIMAL(38,18), including rounding source values beyond 18
+fractional places. UTC timestamps must align to complete minutes. Archive minutes
+without trades are absent, and no candles are fabricated. Strict 5m/1h views require
+all constituent minutes, so sparse historical markets yield fewer aggregates.
+
+A broad first-to-last span in `db-summary` does **not** prove continuous coverage.
+The April–June archive does not fill July–October; consult the import report separately
+from `db-gaps`, which tracks live collector gaps. LIGHTER/USD is absent from the Q2
+archive. Current scanner calculations still use the latest configured lookback; this
+import provides older data for subsequent research/backtesting, not a prediction model.

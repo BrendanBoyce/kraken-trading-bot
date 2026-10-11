@@ -69,7 +69,7 @@ class CandleStore:
                 timestamp TIMESTAMPTZ NOT NULL,
                 open DECIMAL(38,18) NOT NULL, high DECIMAL(38,18) NOT NULL,
                 low DECIMAL(38,18) NOT NULL, close DECIMAL(38,18) NOT NULL,
-                vwap DECIMAL(38,18) NOT NULL, volume DECIMAL(38,18) NOT NULL,
+                vwap DECIMAL(38,18), volume DECIMAL(38,18) NOT NULL,
                 trades BIGINT NOT NULL,
                 PRIMARY KEY(symbol, interval_minutes, timestamp)
             );
@@ -79,6 +79,10 @@ class CandleStore:
                 PRIMARY KEY(symbol, start)
             );
         """)
+        # Older databases required VWAP; official historical archives omit it.
+        self.connection.execute("DROP VIEW IF EXISTS candles_5m")
+        self.connection.execute("DROP VIEW IF EXISTS candles_60m")
+        self.connection.execute("ALTER TABLE candles ALTER COLUMN vwap DROP NOT NULL")
         for minutes, duration in ((5, "5 minutes"), (60, "1 hour")):
             # A count of N aligned, unique minute timestamps proves full coverage.
             self.connection.execute(f"""
@@ -87,7 +91,8 @@ class CandleStore:
                     time_bucket(INTERVAL '{duration}', timestamp) AS timestamp,
                     arg_min(open, timestamp) AS open, max(high) AS high,
                     min(low) AS low, arg_max(close, timestamp) AS close,
-                    CASE WHEN sum(volume) = 0 THEN 0 ELSE
+                    CASE WHEN count(*) FILTER (WHERE vwap IS NULL AND volume > 0) > 0 THEN NULL
+                    WHEN sum(volume) = 0 THEN 0 ELSE
                         sum(CAST(vwap AS DOUBLE) * CAST(volume AS DOUBLE)) /
                         sum(CAST(volume AS DOUBLE)) END AS vwap,
                     sum(volume) AS volume, sum(trades) AS trades
@@ -107,7 +112,9 @@ class CandleStore:
         if stamp.second or stamp.microsecond:
             raise ValueError("Candle timestamps must align to minute boundaries")
         values = (candle.open, candle.high, candle.low, candle.close, candle.vwap, candle.volume)
-        for value in values:
+        for index, value in enumerate(values):
+            if index == 4 and value is None:
+                continue
             if not isinstance(value, Decimal) or not value.is_finite() or value < 0:
                 raise ValueError("Candle prices and volumes must be finite nonnegative Decimals")
             digits = list(value.as_tuple().digits)
