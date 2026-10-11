@@ -389,3 +389,35 @@ The April–June archive does not fill July–October; consult the import report
 from `db-gaps`, which tracks live collector gaps. LIGHTER/USD is absent from the Q2
 archive. Current scanner calculations still use the latest configured lookback; this
 import provides older data for subsequent research/backtesting, not a prediction model.
+
+### Offline historical research
+
+```sh
+# Stop scan --live first so another process can read DuckDB.
+kraken-bot --config config/assets.json research
+# Optional UTC date range and future-return horizon:
+kraken-bot --config config/assets.json research --start 2026-04-01 --end 2026-07-01 --horizon 60
+```
+
+This runs locally and writes `data/research-report.json` plus a readable Markdown
+report. It predicts next-hour close returns with a pooled ridge linear regression
+(default penalty 10), using past 1m/15m/60m returns, the past-hour price range and
+relative volume. The default period is the imported April–June quarter. Dates are
+UTC; `--end` is exclusive. There are no orders, trade signals or strategy changes.
+
+The first 70% of the requested calendar period trains the model, and the later 30%
+forms a holdout. Scaling uses training observations only. Training targets ending
+after the split are excluded. Decisions occur once per horizon per asset, with no
+overlapping target windows and no crossing missing-minute gaps. Features require
+61 consecutive close observations, and targets require all future minutes. Sparse
+assets therefore contribute very few or no samples; the report lists every pair.
+
+Compare held-out RMSE against the training-mean baseline; negative R-squared or a
+worse baseline comparison gives no evidence of predictive skill. The future-high
+10% counts are descriptive event observations, not achievable profit or probability
+predictions. Reported forward returns ignore fees, spread, slippage and fills.
+Asset selection is today's observed list, not a historical market-cap universe;
+survivorship bias and correlated assets limit conclusions. A single holdout is
+preliminary research, not a validated trading backtest. Further experiments need
+walk-forward evaluation and fresh unseen periods rather than repeatedly tuning
+against this same holdout.

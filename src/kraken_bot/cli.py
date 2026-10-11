@@ -5,6 +5,7 @@ import asyncio
 import json
 import logging
 import zipfile
+from datetime import UTC, datetime
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
@@ -24,6 +25,14 @@ def emit(value: Any) -> None:
 
 async def run(args: argparse.Namespace) -> None:
     assets = load_assets(args.config)
+    if args.command == "research":
+        from .research import research
+        with CandleStore(args.db, read_only=True) as store:
+            report = research(store, assets, args.output,
+                datetime.strptime(args.start, "%Y-%m-%d").replace(tzinfo=UTC),
+                datetime.strptime(args.end, "%Y-%m-%d").replace(tzinfo=UTC), args.horizon)
+        print(json.dumps({"report": str(args.output), "train_observations": report["train_observations"], "test": report["test"]}, indent=2))
+        return
     if args.command == "import-history":
         from .history import import_archive
         with CandleStore(args.db) as store:
@@ -99,6 +108,11 @@ def main() -> None:
     ohlc.add_argument("--since", type=int)
     database = argparse.ArgumentParser(add_help=False)
     database.add_argument("--db", type=Path, default=Path("data/market.duckdb"))
+    analysis = commands.add_parser("research", parents=[database], help="Offline historical regression baseline")
+    analysis.add_argument("--start", default="2026-04-01", help="UTC date, inclusive")
+    analysis.add_argument("--end", default="2026-07-01", help="UTC date, exclusive")
+    analysis.add_argument("--horizon", type=int, default=60)
+    analysis.add_argument("--output", type=Path, default=Path("data/research-report.json"))
     history = commands.add_parser("import-history", parents=[database], help="Import allowlisted 1m candles from a Kraken ZIP archive")
     history.add_argument("archive", type=Path)
     history.add_argument("--report", type=Path, default=Path("data/history-import-report.json"))
