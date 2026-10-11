@@ -43,9 +43,25 @@ Neither source guarantees a fresh last trade for inactive pairs.
 Edit `config/assets.json` to select pairs, then use `--config` before the command.
 Without this option the built-in defaults are BTC/USD, ETH/USD and SOL/USD.
 The configured list controls price streaming and OHLC access; `pairs` is a
-discovery command listing the broader Spot universe. XBT is normalized to BTC.
-**The allowlist has not been verified for Kraken Funded eligibility.** Confirm
-eligibility from an official Funded source before subsequent stages use it.
+discovery command listing the broader Spot universe. XBT is normalized to BTC
+and XDG to DOGE.
+
+The configuration now contains **47 distinct cryptocurrencies observed in the
+user's Kraken Funded tab on 11 October 2026**, including the original three assets.
+It is a partial, user-observed list, not an official eligibility certification.
+It has not been verified as the complete Funded universe or a list of low-cap
+assets. The JSON records that provenance without saving screenshots, prices,
+gains, favourites or account details. Kraken's public Spot pair list is checked
+separately for market-data availability; it does not certify Funded eligibility.
+Eligibility can change and must be rechecked in the Funded tab or an official
+source before any future trading use.
+
+After editing this file, stop a running collector with Ctrl-C and restart it
+with `--config config/assets.json`; existing processes do not reload it.
+For 47 assets the first collection pass takes roughly a minute or longer,
+depending on network and storage time. New pairs begin with whatever completed
+one-minute history Kraken currently supplies. Previously stored BTC/ETH/SOL
+history is preserved. There is no need to delete the database.
 
 One WebSocket connection subscribes to the configured list, avoiding REST polling
 per asset. This supports expanding toward about 50 assets without storing every

@@ -10,7 +10,8 @@ def normalize_symbol(value: str) -> str:
     parts = value.strip().upper().split("/")
     if len(parts) != 2 or not all(part.isalnum() for part in parts):
         raise ValueError(f"Expected BASE/QUOTE symbol, got {value!r}")
-    return "/".join("BTC" if part == "XBT" else part for part in parts)
+    aliases = {"XBT": "BTC", "XDG": "DOGE"}
+    return "/".join(aliases.get(part, part) for part in parts)
 
 
 def load_assets(path: Path | None = None) -> tuple[str, ...]:

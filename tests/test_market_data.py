@@ -24,6 +24,10 @@ def test_config(tmp_path):
         load_assets(path)
     with pytest.raises(ValueError):
         normalize_symbol("BTCUSD")
+    assert normalize_symbol("xdg/usd") == "DOGE/USD"
+    path.write_text(json.dumps({"assets": ["DOGE/USD", "XDG/USD"]}))
+    with pytest.raises(ValueError, match="Duplicate"):
+        load_assets(path)
 
 
 def test_ticker_precision_and_time():

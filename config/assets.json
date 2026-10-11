@@ -1,3 +1,19 @@
 {
-  "assets": ["BTC/USD", "ETH/USD", "SOL/USD"]
+  "assets": [
+    "BTC/USD", "ETH/USD", "SOL/USD",
+    "AAVE/USD", "ALGO/USD", "APT/USD", "ARB/USD", "ASTER/USD", "AVAX/USD",
+    "BCH/USD", "BNB/USD", "BONK/USD", "CRV/USD", "DOGE/USD", "ENA/USD",
+    "ETC/USD", "ETHFI/USD", "FARTCOIN/USD", "FIL/USD", "GRASS/USD", "HBAR/USD",
+    "HYPE/USD", "ICP/USD", "INJ/USD", "JTO/USD", "JUP/USD", "LDO/USD",
+    "LIGHTER/USD", "LINK/USD", "LTC/USD", "MON/USD", "NEAR/USD", "ONDO/USD",
+    "OP/USD", "PENDLE/USD", "PEPE/USD", "PNUT/USD", "POL/USD", "RENDER/USD",
+    "S/USD", "TAO/USD", "TRUMP/USD", "UNI/USD", "WIF/USD", "XLM/USD",
+    "ZEC/USD", "ZRO/USD"
+  ],
+  "source": {
+    "type": "user_observed_funded_tab",
+    "observed_date": "2026-10-11",
+    "complete_list": false,
+    "official_eligibility_verified": false
+  }
 }
