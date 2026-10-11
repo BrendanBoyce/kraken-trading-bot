@@ -11,3 +11,6 @@ build/
 dist/
 data/
 *.log
+*.duckdb
+*.duckdb.wal
+*.parquet
