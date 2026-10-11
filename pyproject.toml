@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kraken-market-bot"
+version = "0.1.0"
+description = "Public Kraken market-data foundation"
+requires-python = ">=3.12"
+dependencies = ["aiohttp>=3.11,<4"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<10"]
+
+[project.scripts]
+kraken-bot = "kraken_bot.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
