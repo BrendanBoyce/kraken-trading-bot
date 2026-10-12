@@ -11,6 +11,7 @@ dependencies = ["aiohttp>=3.11,<4", "duckdb>=1.4,<2", "pytz>=2024.1"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8,<10"]
+research = ["numpy>=2,<3", "scikit-learn>=1.7,<2"]
 
 [project.scripts]
 kraken-bot = "kraken_bot.cli:main"

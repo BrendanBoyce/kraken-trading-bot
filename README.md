@@ -563,3 +563,53 @@ with duckdb.connect() as db:
 The current research commands still use candle features. Acquiring trade detail does
 not automatically improve predictions; adding these inputs requires a subsequent
 explicit experiment with chronological validation.
+
+### Trade-enriched rally classifiers
+
+```sh
+python -m pip install '.[research]'
+kraken-bot --config config/assets.json research-enriched
+```
+
+This command actually uses `data/trade-features.duckdb`, joining its past-minute
+features to the candle archive. It compares identical four-hour rally labels and
+sample times with candle-only and trade-enriched feature sets. New features include
+15m/60m quote-volume imbalance, imbalance change, hourly trade count and its
+acceleration, average/large trade size, price relative to past-hour VWAP and a fixed
+momentum/imbalance interaction. Missing trade data for observed candle minutes is
+an error; it is not silently treated as no trades. Future trade fields never enter
+past-window features.
+
+The primary comparison holds L2 logistic regression fixed for both feature sets.
+Separately reported exploratory variants use the same fixed learner candidates: L2 logistic regression
+(C=1) and a small histogram gradient-boosted classifier (100 iterations, learning
+rate .05, depth 3, seven leaves, minimum leaf size 50, L2=10). No parameter search
+or class weighting is performed. In the exploratory variants, each test week
+selects the learner solely by
+average precision on the preceding validation week; ties/no validation events
+select logistic. The nonlinear candidate was added after inspecting the initial
+logistic experiment, so the expanded comparison is explicitly exploratory.
+
+Training expands chronologically. Labels ending after the validation boundary are
+excluded from fitting; validation/test labels must end within their own periods.
+Training-only 1st/99th percentile clipping and standardization bound outliers.
+The fitted estimator is unchanged across its validation week and following test
+week. A score threshold comes from the 95th percentile of validation scores, never
+from test-period rankings or outcome labels. Both pipelines receive exactly the
+same eligible observations. Early periods lacking class support are reported as
+skipped. Rare-rally precision, recall, false positives, average precision and Brier
+error are reported instead of misleading overall classification accuracy.
+
+Outputs are `data/enriched-model-report.json` and `.md`. Per-period fitted pipeline
+artifacts, including threshold, fit/validation cutoffs and horizon, are saved under
+`data/enriched-model-report-models/` with hashes recorded in the report. The initial
+logistic comparison was retained separately as `data/enriched-model-logistic-report.*`.
+Source hashes, library version, feature sets, preprocessing parameters and model
+parameters support reproducibility. Research uses two numerical threads and does
+not open the collector's main database for writing.
+
+This is additional experimentation on previously inspected Q2 data, not fresh
+validation. Better ranking or fewer false positives alone does not establish a
+profitable strategy, calibrated probabilities or executable fills. Cost/downside
+figures retain the event study's fixed-horizon mark and assumed-cost conventions.
+There is no automatic promotion to the live scanner or order execution.

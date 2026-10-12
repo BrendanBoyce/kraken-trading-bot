@@ -25,6 +25,14 @@ def emit(value: Any) -> None:
 
 async def run(args: argparse.Namespace) -> None:
     assets = load_assets(args.config)
+    if args.command=="research-enriched":
+        from .enriched_model import compare_enrichment
+        with CandleStore(":memory:") as store:
+            report=compare_enrichment(store,assets,args.archive,args.feature_db,args.output,
+                datetime.strptime(args.start,"%Y-%m-%d").replace(tzinfo=UTC),
+                datetime.strptime(args.end,"%Y-%m-%d").replace(tzinfo=UTC),args.horizon)
+        print(json.dumps({"report":str(args.output),"aggregate":report["evaluation"]["aggregate"],"observed_change":report["observed_change"]},indent=2))
+        return
     if args.command in {"trade-summary","trade-show"}:
         with CandleStore(args.feature_db,read_only=True) as store:
             if args.command=="trade-summary":
@@ -145,6 +153,13 @@ def main() -> None:
     ohlc.add_argument("--since", type=int)
     database = argparse.ArgumentParser(add_help=False)
     database.add_argument("--db", type=Path, default=Path("data/market.duckdb"))
+    enhanced=commands.add_parser("research-enriched",help="Compare candle-only and trade-enriched rally classifiers")
+    enhanced.add_argument("--archive",type=Path,default=Path("data/archives/Kraken_OHLCVT_2026Q2.zip"))
+    enhanced.add_argument("--feature-db",type=Path,default=Path("data/trade-features.duckdb"))
+    enhanced.add_argument("--start",default="2026-04-01")
+    enhanced.add_argument("--end",default="2026-07-01")
+    enhanced.add_argument("--horizon",type=int,default=240)
+    enhanced.add_argument("--output",type=Path,default=Path("data/enriched-model-report.json"))
     trade_database=argparse.ArgumentParser(add_help=False)
     trade_database.add_argument("--feature-db",type=Path,default=Path("data/trade-features.duckdb"))
     commands.add_parser("trade-summary",parents=[trade_database],help="Inspect trade feature coverage")
