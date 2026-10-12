@@ -852,3 +852,59 @@ trade inputs or used to guarantee a return to an arbitrary prior high.
 The main collector database is not opened or changed. No orders are submitted,
 and no costs, execution availability, account equity or Funded bot access are
 assumed by these price-touch statistics.
+
+### Live experimental model scores in the scanner
+
+```sh
+kraken-bot --config config/pullback-assets.json scan --live --paper-models
+# One-pass verification instead of a continuous loop:
+kraken-bot scan --live --paper-models --once --db data/paper-check.duckdb --prediction-log data/paper-check/predictions.jsonl
+```
+
+This explicitly opt-in paper mode connects the saved 3/4/5% logistic profit-outcome
+models to real public Kraken Spot candles and trades. It never uses API credentials,
+account balances, private endpoints or order placement. A normal scan remains an
+indicator scan. Paper mode defaults to a separate `data/paper-market.duckdb`, avoiding
+the existing collector's `data/market.duckdb` lock. If the paper scanner is already
+running, inspect its output instead of starting another writer on the same file.
+Ctrl-C stops the process started in your terminal.
+
+Each prediction uses a common UTC decision minute based on exchange server time,
+with a 15-second settlement margin. Public Trades history is paginated from the
+start of the 241-minute feature window, then refreshed using incremental exchange
+cursors. Trade IDs deduplicate overlapping responses. Only rolling minute
+aggregates and IDs are retained in memory; individual trades/ticks are not written
+permanently. Completed 1-minute candles are stored in the separate paper database.
+
+Per-minute observed trade counts and volumes must match the candle endpoint before
+features are computed. A known empty minute can carry the preceding close with
+zero volume, as in training. Unknown or mismatched history blocks predictions.
+The same training SQL builds candle and trade features, and BTC/ETH context is
+aligned to the same completed minute. Current/incomplete candles and trades at or
+after the decision are excluded from features. Liquidity eligibility is unchanged:
+the latest minute must contain actual trades, with sufficient past activity and
+finite features. More than five minutes of input age or unavailable reference
+assets/exchange time also blocks scores. Clock/network failure emits blocked status
+rather than guessed predictions, then retries. A page limit blocks partial history.
+
+Three frozen models return scores and a `positive_net`/`nonpositive_net` class at
+0.5. These are not calibrated win probabilities, buy/sell recommendations or
+predictions of price direction alone. Positive labels in training included
+profitable timeouts, not just target touches. Fixed 99.5th-percentile validation
+cutoffs provide a **diagnostic paper-watch flag**; no model/policy passed the earlier
+validation requirements. Every row retains `validated_buy_signal=false` and
+`orders_enabled=false`. $100 is paper notional metadata, not a placed position.
+
+Inference refreshes approximately once a minute on a small watchlist. Initial
+four-hour trade bootstrap and larger asset lists can take longer under public API
+rate limits; subsequent passes use incremental cursors. Freshness checks continue
+to apply. Predictions made outside the original four-hour training sampling grid
+or on assets outside the training universe (including DOT, ADA, XRP and ATOM in the
+current watchlist) are explicitly flagged. These cases have additional uncertainty.
+
+Live output is `data/live-paper/latest.md` and `.json`; decision snapshots and the
+actual input feature vectors are appended to `predictions.jsonl`, with model/source
+hashes and quality flags. `runtime.json` identifies the scanner process. The process
+needs the Mac awake and network access; it is not a scheduled or hosted service.
+Funded account access and software-managed stops remain unconfirmed, and no
+Funded/Spot order execution is part of this command.

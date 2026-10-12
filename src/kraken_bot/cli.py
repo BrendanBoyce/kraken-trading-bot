@@ -130,11 +130,24 @@ async def run(args: argparse.Namespace) -> None:
         return
     if args.command == "scan":
         settings = load_scanner_config(args.scanner_config)
+        if args.paper_models:
+            if not args.live:
+                raise ValueError('Use scan --live --paper-models for real public trade inputs')
+            from .live_models import run_paper_scanner
+            paper_db = args.db if args.db != Path('data/market.duckdb') else Path('data/paper-market.duckdb')
+            logging.info('Paper predictions use %s; no order endpoints or API credentials', paper_db)
+            with CandleStore(paper_db) as store:
+                async with KrakenClient() as client:
+                    await run_paper_scanner(client, store, assets, settings,
+                        args.model_report, args.precision_report, args.prediction_log,
+                        once=args.once, poll_seconds=args.poll_seconds, max_pages=args.max_trade_pages)
+            return
         reporter = ScanReporter(settings, json_output=args.json)
         with CandleStore(args.db, read_only=not args.live) as store:
             if args.live:
                 async with KrakenClient() as client:
                     await collect_candles(client, store, assets,
+                                          once=args.once,
                                           on_pass=lambda: reporter.report(scan(store, assets, settings)))
             else:
                 reporter.report(scan(store, assets, settings))
@@ -287,6 +300,13 @@ def main() -> None:
     scanner.add_argument("--live", action="store_true", help="Collect 1m candles and scan in one process")
     scanner.add_argument("--scanner-config", type=Path, help="JSON indicator periods and freshness settings")
     scanner.add_argument("--json", action="store_true", help="Emit structured scanner rows")
+    scanner.add_argument('--paper-models', action='store_true', help='Show experimental fitted-model scores from live public trades; never place orders')
+    scanner.add_argument('--once', action='store_true', help='Finish one live scan pass and stop')
+    scanner.add_argument('--poll-seconds', type=float, default=60)
+    scanner.add_argument('--max-trade-pages', type=int, default=100, help='Per-pair history-page limit; insufficient coverage blocks predictions')
+    scanner.add_argument('--model-report', type=Path, default=Path('data/net-model/report.json'))
+    scanner.add_argument('--precision-report', type=Path, default=Path('data/precision-trades/report.json'))
+    scanner.add_argument('--prediction-log', type=Path, default=Path('data/live-paper/predictions.jsonl'))
     commands.add_parser("db-summary", parents=[database], help="Show stored 1m history coverage")
     commands.add_parser("db-gaps", parents=[database], help="Show detected missing candle ranges")
     show = commands.add_parser("db-show", parents=[database], help="Inspect stored or aggregated candles")

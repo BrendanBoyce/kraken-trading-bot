@@ -67,7 +67,7 @@ class KrakenClient:
         return self._session
 
     async def _request(self, endpoint: str, params: dict | None = None) -> dict:
-        if endpoint not in {"AssetPairs", "Ticker", "OHLC"}:
+        if endpoint not in {"AssetPairs", "Ticker", "OHLC", "Trades", "Time"}:
             raise ValueError("Unsupported public market-data endpoint")
         for attempt in range(self.retries + 1):
             delay = min(2 ** attempt, 30) + random.uniform(0, 1)
@@ -162,6 +162,20 @@ class KrakenClient:
             *(Decimal(str(value)) for value in row[1:7]), int(row[7]), i < len(rows) - 1,
         ) for i, row in enumerate(rows))
         return CandleBatch(candles, int(result["last"]))
+
+    async def server_time(self) -> datetime:
+        result = await self._request("Time")
+        return datetime.fromtimestamp(int(result['unixtime']), UTC)
+
+    async def recent_trades(self, symbol: str, since: str) -> tuple[list, str]:
+        pair = (await self._resolve([symbol]))[0]
+        if not str(since).isdigit():
+            raise ValueError("Trade cursor must be a nonnegative integer string")
+        result = await self._request("Trades", {"pair":pair.altname,"since":str(since),"count":1000})
+        rows = result.get(pair.rest_id, result.get(pair.altname))
+        if rows is None or 'last' not in result:
+            raise KrakenError(f"Trades response omitted {symbol} or cursor")
+        return rows, str(result['last'])
 
     async def stream(self, symbols: Sequence[str]) -> AsyncIterator[Price]:
         pairs = await self._resolve(symbols)
