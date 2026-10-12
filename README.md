@@ -613,3 +613,37 @@ validation. Better ranking or fewer false positives alone does not establish a
 profitable strategy, calibrated probabilities or executable fills. Cost/downside
 figures retain the event study's fixed-horizon mark and assumed-cost conventions.
 There is no automatic promotion to the live scanner or order execution.
+
+### Stricter selection thresholds
+
+```sh
+# Capture prior-validation scores along with frozen fitted models/test scores.
+kraken-bot --config config/assets.json research-enriched --output data/threshold-model-input.json
+# Evaluate the predetermined threshold policies without fitting models again.
+kraken-bot research-thresholds --input-report data/threshold-model-input.json
+```
+
+Outputs are `data/threshold-study-report.json` and `.md`. The primary candle-only
+and trade-enriched logistic models are compared on paired test keys and labels.
+Four fixed policies use the 95th, 97.5th, 99th and 99.5th percentiles of each preceding
+validation week's scores. A 99.5th percentile cutoff is **not** a 99.5% probability
+of a rally. Ties and distribution shifts can change the later selection rate.
+
+Additional policies seek empirical validation precision of 80%, 90% or 100%, with
+at least ten selected validation cases by default. Each picks the least restrictive
+score threshold meeting its target and support requirement; equal-score groups stay
+intact. If no threshold qualifies, the policy abstains for that period. Change the
+support requirement explicitly with `--minimum-validation-selections`; it is a
+support guardrail, not proof of reliability or a confidence bound.
+
+Thresholds never use test labels. Those labels measure false positives, hits, missed
+rallies, precision, recall, worst downside and assumed-cost close-return proxies.
+Validation target end times are checked against test boundaries, and every test key
+must belong to exactly one period. Empty selections have undefined precision and
+are labelled as providing no performance estimate. Zero observed false positives
+with nonempty selections are still not a guarantee of future performance.
+
+This is an exploratory policy comparison on previously inspected Q2 data. No policy
+is automatically chosen from the test table, promoted to the live scanner, or marked
+ready for trading. More selective policies can miss most rallies and remain negative
+after assumed costs. Fresh data and executable-price validation remain necessary.

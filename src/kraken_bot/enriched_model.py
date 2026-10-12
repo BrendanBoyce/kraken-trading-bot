@@ -169,6 +169,9 @@ def evaluate_models(rows,start,end,horizon=240,model_dir=None):
                     metrics=classification_metrics(test,predicted,threshold)
                     fold['models'][variant]={'metrics':metrics,'model':model_details(model),
                         'validation_candidate_average_precision':ap,
+                        'validation_predictions':[{'decision_utc':r['decision_utc'].isoformat(),
+                            'label_end_utc':r['label_end_utc'].isoformat(),'actual_rally':r['rally'],
+                            'score':float(p)} for r,p in zip(validation,validation_scores[kind])],
                         'threshold_policy':'95th percentile of preceding validation scores, never test percentiles.'}
                     if model_dir is not None:
                         import joblib

@@ -25,6 +25,11 @@ def emit(value: Any) -> None:
 
 async def run(args: argparse.Namespace) -> None:
     assets = load_assets(args.config)
+    if args.command=="research-thresholds":
+        from .threshold_study import threshold_study
+        report=threshold_study(args.input_report,args.output,args.minimum_validation_selections)
+        print(json.dumps({"report":str(args.output),"results":[{"model":p["model"],"policy":p["policy"],**p["summary"]} for p in report["policies"]]},indent=2))
+        return
     if args.command=="research-enriched":
         from .enriched_model import compare_enrichment
         with CandleStore(":memory:") as store:
@@ -153,6 +158,10 @@ def main() -> None:
     ohlc.add_argument("--since", type=int)
     database = argparse.ArgumentParser(add_help=False)
     database.add_argument("--db", type=Path, default=Path("data/market.duckdb"))
+    thresholds=commands.add_parser("research-thresholds",help="Evaluate fixed stricter past-validation thresholds")
+    thresholds.add_argument("--input-report",type=Path,default=Path("data/threshold-model-input.json"))
+    thresholds.add_argument("--output",type=Path,default=Path("data/threshold-study-report.json"))
+    thresholds.add_argument("--minimum-validation-selections",type=int,default=10)
     enhanced=commands.add_parser("research-enriched",help="Compare candle-only and trade-enriched rally classifiers")
     enhanced.add_argument("--archive",type=Path,default=Path("data/archives/Kraken_OHLCVT_2026Q2.zip"))
     enhanced.add_argument("--feature-db",type=Path,default=Path("data/trade-features.duckdb"))
