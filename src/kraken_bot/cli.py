@@ -25,6 +25,17 @@ def emit(value: Any) -> None:
 
 async def run(args: argparse.Namespace) -> None:
     assets = load_assets(args.config)
+    if args.command == "research-rallies":
+        from .rally_study import rally_study
+        with CandleStore(":memory:") as store:
+            report = rally_study(store, assets, args.archive, args.output,
+                datetime.strptime(args.start, "%Y-%m-%d").replace(tzinfo=UTC),
+                datetime.strptime(args.end, "%Y-%m-%d").replace(tzinfo=UTC),
+                tuple(args.horizons), tuple(args.cost_bps))
+        print(json.dumps({"report": str(args.output), "experiments": [
+            {"horizon_minutes": e["horizon_minutes"], "test_baseline": e["chronological"]["test_baseline"],
+             "selected_test": e["chronological"]["selected_test"]} for e in report["experiments"]]}, indent=2))
+        return
     if args.command == "research-walk-forward":
         from .walk_forward import walk_forward
         # Archive research is independent of the live collector's database lock.
@@ -118,6 +129,13 @@ def main() -> None:
     ohlc.add_argument("--since", type=int)
     database = argparse.ArgumentParser(add_help=False)
     database.add_argument("--db", type=Path, default=Path("data/market.duckdb"))
+    rallies = commands.add_parser("research-rallies", help="Study rally events, controls, downside and chronological hypotheses")
+    rallies.add_argument("--archive", type=Path, default=Path("data/archives/Kraken_OHLCVT_2026Q2.zip"))
+    rallies.add_argument("--start", default="2026-04-01")
+    rallies.add_argument("--end", default="2026-07-01")
+    rallies.add_argument("--horizons", type=int, nargs="+", default=[240,720,1440], help="Minutes; first horizon is primary")
+    rallies.add_argument("--cost-bps", type=float, nargs="+", default=[0,50,100], help="Assumed total cost haircuts in basis points")
+    rallies.add_argument("--output", type=Path, default=Path("data/rally-study-report.json"))
     walk = commands.add_parser("research-walk-forward", help="Evaluate archive baseline over chronological periods")
     walk.add_argument("--archive", type=Path, default=Path("data/archives/Kraken_OHLCVT_2026Q2.zip"))
     walk.add_argument("--start", default="2026-04-01")

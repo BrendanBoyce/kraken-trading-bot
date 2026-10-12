@@ -461,3 +461,54 @@ These are exploratory results on Q2 data already examined in the initial holdout
 study, not a fresh final validation set. Correlated assets, today's selected asset
 list, missing market-cap information and unavailable execution costs remain limits.
 A positive result here would still need later, genuinely untouched data.
+
+### Rally-event study
+
+```sh
+kraken-bot --config config/assets.json research-rallies
+```
+
+The local command produces `data/rally-study-report.json` and a readable `.md` report
+from the archive without opening the live database. Default primary outcome: a
+recorded trade candle high touching +10% within four hours. Twelve- and 24-hour
+horizons are separate exploratory comparisons, not combined independent evidence.
+`--horizons 240 720 1440` specifies minutes; the first horizon is primary.
+
+Four fixed research conditions examine past-hour volume, momentum with volume,
+a four-hour breakout with volume, and compression with volume. Features require
+four hours of archive coverage, a recorded trade at the decision minute, at least
+25% past-hour traded minutes and positive previous volume. Samples use regular
+UTC-aligned, non-overlapping future windows per horizon. A future endpoint need
+not have traded: it is flagged and its closing mark remains an unexecutable proxy.
+Neither prices nor observed-trade flags from the future determine past features.
+
+After 28 training days, each seven-day test period uses a condition selected only
+from completed earlier labels. Selection requires at least 30 training exposures,
+three rally windows and three merged positive episodes, then chooses the largest
+asset-adjusted rally-rate difference. These are exploratory support thresholds,
+not statistical significance. Unsupported periods select no condition. Reports
+include false positives, recall, within-asset control rates and weekly consistency.
+
+A separate descriptive comparison matches each rally window to one nearest non-rally
+window from the same asset and ISO week, without reusing controls. These outcome-based
+matches never choose a forecasting condition. Adjacent positive windows are merged
+per asset for episode counts; shared market shocks still create dependence.
+
+Downside is the lowest future candle low relative to the decision reference close.
+First target (+10%) and downside (-5%) crossing minutes establish order when possible;
+both occurring in one candle is marked ambiguous. A target high is never booked as
+realized profit. Reported fixed-horizon close proxies use an illustrative combined
+cost haircut `(1 + gross_close_return) * (1 - cost_bps/10000) - 1`.
+`--cost-bps 0 50 100` means assumed total costs of 0%, 0.5% and 1%, **not verified
+Kraken fees**, spread or obtainable fills. No take-profit/stop-loss strategy is
+executed or backtested as a fill simulation.
+
+The study reuses previously inspected Q2 data. Multiple hypotheses/horizons, few
+rally events, sparse trading, today's selected assets and correlated markets limit
+inference. Positive associations require new data before reliability claims.
+
+The current local environment uses a regular package installation after a macOS
+hidden-file attribute prevented Python from processing its editable path file.
+After changing source, update the command with `python -m pip install --no-deps .`.
+Tests explicitly use `src/` through the pytest configuration; `pytest` therefore
+checks working source, rather than an older installed copy.
