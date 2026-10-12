@@ -25,6 +25,15 @@ def emit(value: Any) -> None:
 
 async def run(args: argparse.Namespace) -> None:
     assets = load_assets(args.config)
+    if args.command == "research-exits":
+        from .exit_study import run_exit_study
+        report = run_exit_study(assets, args.plan, args.filter_plan, args.input_report,
+            args.filter_report, args.training_archive, args.training_db,
+            args.test_archive, args.test_db, args.output)
+        print(json.dumps({"report": str(args.output), "selected_settings": report['selection']['settings_by_stream'],
+            "Q3_selected_results": report['Q3_validation_selected_results'],
+            "activity": report['Q3_entry_activity']}, indent=2))
+        return
     if args.command == "research-filters":
         from .filter_study import run_study
         report = run_study(assets, args.plan, args.input_report, args.training_archive,
@@ -165,6 +174,16 @@ def main() -> None:
     ohlc.add_argument("--since", type=int)
     database = argparse.ArgumentParser(add_help=False)
     database.add_argument("--db", type=Path, default=Path("data/market.duckdb"))
+    exits = commands.add_parser("research-exits", help="Explore smaller profit targets with gap-aware stop and timeout proxies")
+    exits.add_argument("--plan", type=Path, default=Path("config/exit-study-plan.json"))
+    exits.add_argument("--filter-plan", type=Path, default=Path("config/filter-study-plan.json"))
+    exits.add_argument("--input-report", type=Path, default=Path("data/threshold-model-input.json"))
+    exits.add_argument("--filter-report", type=Path, default=Path("data/filter-study/report.json"))
+    exits.add_argument("--training-archive", type=Path, default=Path("data/archives/Kraken_OHLCVT_2026Q2.zip"))
+    exits.add_argument("--training-db", type=Path, default=Path("data/trade-features.duckdb"))
+    exits.add_argument("--test-archive", type=Path, default=Path("data/archives/Kraken_OHLCVT_2026Q3.zip"))
+    exits.add_argument("--test-db", type=Path, default=Path("data/trade-features-Q3.duckdb"))
+    exits.add_argument("--output", type=Path, default=Path("data/exit-study/report.json"))
     filters = commands.add_parser("research-filters", help="Frozen past-validation filters on a later archive quarter")
     filters.add_argument("--plan", type=Path, default=Path("config/filter-study-plan.json"))
     filters.add_argument("--input-report", type=Path, default=Path("data/threshold-model-input.json"))

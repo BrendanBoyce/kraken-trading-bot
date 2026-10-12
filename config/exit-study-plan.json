@@ -1,0 +1,14 @@
+{
+  "targets_pct": [3, 4, 5, 10],
+  "stops_pct": [1, 2, 3],
+  "hold_minutes": [60, 120, 240],
+  "combined_cost_bps": [0, 50, 100],
+  "selection_cost_bps": 50,
+  "minimum_validation_trades": 20,
+  "entry_streams": ["none", "buy_confirmation"],
+  "same_minute_order": "stop_first",
+  "entry_reference": "next-minute open, only if that minute contains a trade",
+  "settings_selection": "positive mean net return on Q2 validation only; at least 20 trades; maximum mean, ties prefer smaller target, smaller stop, shorter hold",
+  "evaluation_status": "exploratory: Q2 and Q3 outcomes have already been inspected",
+  "ready_for_trading": false
+}

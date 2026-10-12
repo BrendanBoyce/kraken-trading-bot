@@ -684,3 +684,48 @@ separately from Q2. Archive imports use one DuckDB thread, a 512 MB memory budge
 and external sorting without insertion-order preservation for larger pairs.
 No filter activates live trading. A +10% high touch does not establish a realizable
 exit; an abstaining model has undefined precision and is not trading-ready.
+
+### Smaller profit targets, stops and time limits
+
+```sh
+kraken-bot --config config/assets.json research-exits
+```
+
+`config/exit-study-plan.json` fixes 3%, 4%, 5% and benchmark 10% targets,
+1%, 2% and 3% stops, and 60/120/240-minute limits. Combined hypothetical fee,
+spread and slippage haircuts are 0/50/100 bps. The preceding experiment's entry
+classifier and score cutoff stay unchanged; both baseline and buy-confirmation
+entry streams are diagnostic because neither was approved for live trading.
+
+Entries use the opening trade price of the next minute, not the previous closing
+price used as the older rally-label reference. An absent entry minute leaves the
+signal unfilled rather than waiting for a convenient later price. Observed OHLC
+bars provide path references. A gap through a stop uses the worse opening price;
+a target crossed at an opening price uses the target price. When both levels are
+touched later in one candle and order is unknown, stop-first is assumed. Timeout
+marks use the last observed close within the time limit; absent final-minute trades
+produce explicitly flagged stale marks. Targets/stop prices remain assumed fills,
+not proven executable quotes, and costs are sensitivities rather than verified
+fee rates. Stop sizes do not cap losses across gaps.
+
+Settings are selected only from Q2 validation windows: at least twenty marked
+trades, positive mean net return at 50 bps, and no stale timeout marks. The highest
+validation mean wins; ties favor smaller target, smaller stop, shorter hold.
+Unsupported settings abstain. The selection is written to
+`data/exit-study/report.selection.json` before computing Q3 exits. Original Q2
+validation scores and Q3 entry keys/scores must reproduce their saved reports;
+source and model hash checks guard against mixing experiments.
+
+`data/exit-study/report.md` and `.json` include all fixed candidates, net win rates,
+mean/median/worst trade-return proxies, profit factors, target/stop/timeout counts,
+ambiguous candles, unfilled entries, stale marks, and signal frequency. These
+figures are per-trade price-path research, not portfolio returns: no capital,
+position sizing, depth, queue position or partial fills are modelled. Same-pair
+windows do not overlap, but positions in different assets can overlap.
+
+Both Q2 and Q3 were previously inspected. The new exit experiment is exploratory,
+and optimizing against the Q3 table would introduce further overfitting. A best
+row or positive average cannot establish readiness; the current asset universe
+was selected later, validation support is small and many settings are compared.
+This command does not alter the live collector, enable model signals, or place
+orders.
