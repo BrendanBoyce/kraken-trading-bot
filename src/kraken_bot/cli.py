@@ -25,6 +25,22 @@ def emit(value: Any) -> None:
 
 async def run(args: argparse.Namespace) -> None:
     assets = load_assets(args.config)
+    if args.command in {"trade-summary","trade-show"}:
+        with CandleStore(args.feature_db,read_only=True) as store:
+            if args.command=="trade-summary":
+                cursor=store.connection.execute("SELECT symbol,sum(trades) AS trades,count(*) AS feature_minutes,min(timestamp) AS first_utc,max(timestamp) AS last_utc FROM trade_features GROUP BY symbol ORDER BY symbol")
+            else:
+                if args.limit<1:
+                    raise ValueError("limit must be positive")
+                cursor=store.connection.execute("SELECT * FROM trade_features WHERE symbol=? ORDER BY timestamp DESC LIMIT ?",[normalize_symbol(args.symbol),args.limit])
+            names=[field[0] for field in cursor.description]
+            for row in cursor.fetchall(): print(json.dumps(dict(zip(names,row)),default=str))
+        return
+    if args.command == "import-trades":
+        from .trade_history import import_trades
+        report=import_trades(args.archive,assets,args.output_dir,args.feature_db)
+        print(json.dumps({key:report[key] for key in ("complete","total_trades","feature_minutes","feature_db")},indent=2))
+        return
     if args.command == "research-rallies":
         from .rally_study import rally_study
         with CandleStore(":memory:") as store:
@@ -129,6 +145,16 @@ def main() -> None:
     ohlc.add_argument("--since", type=int)
     database = argparse.ArgumentParser(add_help=False)
     database.add_argument("--db", type=Path, default=Path("data/market.duckdb"))
+    trade_database=argparse.ArgumentParser(add_help=False)
+    trade_database.add_argument("--feature-db",type=Path,default=Path("data/trade-features.duckdb"))
+    commands.add_parser("trade-summary",parents=[trade_database],help="Inspect trade feature coverage")
+    trade_show=commands.add_parser("trade-show",parents=[trade_database],help="Inspect trade-derived minute features")
+    trade_show.add_argument("symbol")
+    trade_show.add_argument("--limit",type=int,default=5)
+    trades=commands.add_parser("import-trades",help="Import official trade archive and derive minute features")
+    trades.add_argument("archive",type=Path)
+    trades.add_argument("--output-dir",type=Path,default=Path("data/trades"))
+    trades.add_argument("--feature-db",type=Path,default=Path("data/trade-features.duckdb"))
     rallies = commands.add_parser("research-rallies", help="Study rally events, controls, downside and chronological hypotheses")
     rallies.add_argument("--archive", type=Path, default=Path("data/archives/Kraken_OHLCVT_2026Q2.zip"))
     rallies.add_argument("--start", default="2026-04-01")

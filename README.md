@@ -512,3 +512,54 @@ hidden-file attribute prevented Python from processing its editable path file.
 After changing source, update the command with `python -m pip install --no-deps .`.
 Tests explicitly use `src/` through the pytest configuration; `pytest` therefore
 checks working source, rather than an older installed copy.
+
+### Trade-level enrichment for the same historical quarter
+
+```sh
+kraken-bot --config config/assets.json import-trades data/archives/Kraken_Trades_2026Q2.zip
+kraken-bot trade-summary
+kraken-bot trade-show BTC/USD --limit 5
+```
+
+[Kraken's official trade archive](https://support.kraken.com/articles/360047543791-downloadable-historical-market-data-time-and-sales-)
+contains timestamp, price, volume, buy/sell classification, order type, misc and trade
+ID. The initial download adds April–June 2026 trade detail for configured USD pairs.
+It does not extend calendar coverage or provide an untouched validation period.
+
+Raw trades are stored per pair as Zstandard Parquet under
+`data/trades/Kraken_Trades_2026Q2/`. Trade IDs are deduplicated per pair; repeated IDs
+with conflicting contents are rejected. Exact epoch seconds retain nine fractional
+digits. The UTC timestamp convenience column rounds to microseconds; exact epoch
+seconds remain authoritative for ordering and minute buckets. Prices/volumes use
+DECIMAL(38,18); derived quote values and VWAP use double precision. Validation rejects
+unsupported precision rather than silently truncating it.
+
+`data/trade-features.duckdb` has a `trade_features` table keyed by pair and UTC minute.
+It stores trade count, base/quote volume, VWAP, largest/mean trade quote size,
+buy-classified and sell-classified volume, and signed base/quote volume imbalance.
+A zero-volume minute is not fabricated. Buy/sell classification does not establish
+capital inflows, order-book depth, spread or executable fills.
+
+The importer processes one pair at a time with two DuckDB threads and a 512 MB memory
+limit. It checks archive-member CRCs on extraction, records source and Parquet SHA-256
+hashes, and verifies saved raw data before repeat imports. Repeats reuse raw Parquet
+and rebuild the same source's features without duplicates. Differing sources with
+overlapping minute features are rejected. An interrupted pair may leave an unpaired
+raw artifact; the importer refuses to overwrite artifacts without matching metadata.
+All archives, raw data and the provenance report remain under ignored `data/`.
+The existing candle collector can continue because enrichment uses a separate DB.
+
+Example raw-data inspection in Python:
+
+```python
+import duckdb
+with duckdb.connect() as db:
+    db.execute("SET threads=2")
+    db.execute("SET memory_limit='512MB'")
+    print(db.execute("SELECT side, count(*) FROM read_parquet(?) GROUP BY side",
+                     ["data/trades/Kraken_Trades_2026Q2/BTC_USD.parquet"]).fetchall())
+```
+
+The current research commands still use candle features. Acquiring trade detail does
+not automatically improve predictions; adding these inputs requires a subsequent
+explicit experiment with chronological validation.
