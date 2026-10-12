@@ -1,0 +1,63 @@
+{
+  "created_before_Q3_outcome_analysis": true,
+  "training_input_sha256": "3c5001596f4af2d1a4bb883d316d5ebfe884a201b194775f5e09d86d6b33ec3a",
+  "frozen_model": {
+    "path": "data/threshold-model-input-models/2026-06-24-trade_enriched.joblib",
+    "sha256": "fae5d33da6503a3966f26314d70b4a2950216c10c443a0506f927e71b13b4859"
+  },
+  "fit_end_utc": "2026-06-17T00:00:00+00:00",
+  "validation_end_utc": "2026-06-24T00:00:00+00:00",
+  "test_period": [
+    "2026-07-01",
+    "2026-10-01"
+  ],
+  "horizon_minutes": 240,
+  "score_cutoff_validation_quantile": 0.995,
+  "filters": {
+    "none": {},
+    "liquid": {
+      "traded_fraction_60m_min": 0.75,
+      "trade_count_60m_min": 100,
+      "quote_volume_60m_min": 50000
+    },
+    "buy_confirmation": {
+      "quote_imbalance_60m_min": 0.2,
+      "quote_imbalance_15m_min": 0
+    },
+    "relative_strength": {
+      "return_60m_minus_mean_BTC_ETH_min": 0.01
+    },
+    "market_not_falling": {
+      "mean_BTC_ETH_return_60m_min": -0.01
+    },
+    "not_extended": {
+      "return_60m_max": 0.05,
+      "return_240m_max": 0.1
+    },
+    "not_concentrated": {
+      "largest_trade_fraction_max": 0.2
+    }
+  },
+  "combinations": {
+    "liquid_confirmed": [
+      "liquid",
+      "buy_confirmation"
+    ],
+    "relative_not_extended": [
+      "relative_strength",
+      "not_extended"
+    ],
+    "liquid_context": [
+      "liquid",
+      "market_not_falling",
+      "not_extended"
+    ]
+  },
+  "selection_policy": {
+    "minimum_cumulative_validation_selections": 10,
+    "minimum_empirical_precision": 0.5,
+    "requires_better_than_baseline": true
+  },
+  "readiness": false,
+  "no_Q3_tuning": true
+}

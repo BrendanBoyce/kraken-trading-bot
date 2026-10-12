@@ -647,3 +647,40 @@ This is an exploratory policy comparison on previously inspected Q2 data. No pol
 is automatically chosen from the test table, promoted to the live scanner, or marked
 ready for trading. More selective policies can miss most rallies and remain negative
 after assumed costs. Fresh data and executable-price validation remain necessary.
+
+### Frozen liquidity and market-context filters
+
+The fixed plan in `config/filter-study-plan.json` records the model/report hashes,
+June fitting and calibration boundaries, July–September holdout dates, score
+quantile, filter thresholds, and validation support requirements. It was written
+before processing Q3 outcomes. The named model artifacts and Q2 report must exist;
+checksum mismatches fail rather than silently using different models.
+
+```sh
+kraken-bot --config config/assets.json import-trades data/archives/Kraken_Trades_2026Q3.zip --feature-db data/trade-features-Q3.duckdb
+kraken-bot --config config/assets.json research-filters
+```
+
+The command rebuilds the original Q2 samples and verifies their scores and labels,
+checks candle/trade count and volume agreement, then compares fixed activity,
+buy-classification, relative-strength, market-context, overextension and
+trade-concentration filters. Turnover thresholds require USD pairs. BTC/ETH context
+uses the last completed minute and trailing returns, with missing context rejected.
+Only Q2 validation selections choose a filter: at least ten cases, empirical
+precision at least 50%, and improvement over baseline. Ties favor more support,
+then alphabetic filter name. These are research guardrails, not statistical proof.
+Unsupported policies abstain.
+
+The selection and June score cutoff are saved to
+`data/filter-study/report.selection.json` before Q3 processing. Q3 uses the frozen
+June classifier, without retraining or calibrating on Q3. Candidate comparisons in
+`data/filter-study/report.md` and `.json` are diagnostic; choosing the best Q3 filter
+would consume that holdout. The asset list was chosen later in October, so this
+experiment retains retrospective asset-selection bias. Q3 is now inspected and
+cannot be claimed as untouched in another tuned experiment.
+
+The collector database is not opened. Q3 trade features and raw Parquet live
+separately from Q2. Archive imports use one DuckDB thread, a 512 MB memory budget
+and external sorting without insertion-order preservation for larger pairs.
+No filter activates live trading. A +10% high touch does not establish a realizable
+exit; an abstaining model has undefined precision and is not trading-ready.

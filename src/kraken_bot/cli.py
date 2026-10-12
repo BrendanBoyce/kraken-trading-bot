@@ -25,6 +25,13 @@ def emit(value: Any) -> None:
 
 async def run(args: argparse.Namespace) -> None:
     assets = load_assets(args.config)
+    if args.command == "research-filters":
+        from .filter_study import run_study
+        report = run_study(assets, args.plan, args.input_report, args.training_archive,
+            args.training_db, args.test_archive, args.test_db, args.output)
+        print(json.dumps({"report": str(args.output), "selected_filter": report['selection']['chosen_filter'],
+            "holdout_results": report['holdout_results']}, indent=2))
+        return
     if args.command=="research-thresholds":
         from .threshold_study import threshold_study
         report=threshold_study(args.input_report,args.output,args.minimum_validation_selections)
@@ -158,6 +165,14 @@ def main() -> None:
     ohlc.add_argument("--since", type=int)
     database = argparse.ArgumentParser(add_help=False)
     database.add_argument("--db", type=Path, default=Path("data/market.duckdb"))
+    filters = commands.add_parser("research-filters", help="Frozen past-validation filters on a later archive quarter")
+    filters.add_argument("--plan", type=Path, default=Path("config/filter-study-plan.json"))
+    filters.add_argument("--input-report", type=Path, default=Path("data/threshold-model-input.json"))
+    filters.add_argument("--training-archive", type=Path, default=Path("data/archives/Kraken_OHLCVT_2026Q2.zip"))
+    filters.add_argument("--training-db", type=Path, default=Path("data/trade-features.duckdb"))
+    filters.add_argument("--test-archive", type=Path, default=Path("data/archives/Kraken_OHLCVT_2026Q3.zip"))
+    filters.add_argument("--test-db", type=Path, default=Path("data/trade-features-Q3.duckdb"))
+    filters.add_argument("--output", type=Path, default=Path("data/filter-study/report.json"))
     thresholds=commands.add_parser("research-thresholds",help="Evaluate fixed stricter past-validation thresholds")
     thresholds.add_argument("--input-report",type=Path,default=Path("data/threshold-model-input.json"))
     thresholds.add_argument("--output",type=Path,default=Path("data/threshold-study-report.json"))

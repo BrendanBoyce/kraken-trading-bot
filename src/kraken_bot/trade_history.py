@@ -110,6 +110,9 @@ def import_trades(archive_path,symbols,output_dir,db_path):
         'assets':[],'precision':'Original epoch seconds retained exactly to 9 decimals. UTC timestamp is a rounded microsecond-resolution convenience; exact epoch seconds are authoritative. Raw prices/volumes DECIMAL(38,18); derived quote values and VWAP use double precision.',
         'meaning':'Buy/sell fields are archive trade classifications, not order-book depth, capital inflows or executable quotes.'}
     with zipfile.ZipFile(archive_path) as archive, CandleStore(db_path) as store:
+        # Large quarterly pairs need external sorting within the laptop memory budget.
+        store.connection.execute('SET threads=1')
+        store.connection.execute('SET preserve_insertion_order=false')
         manifest=json.loads(archive.read('MANIFEST.json'))
         if manifest.get('product')!='trades' or manifest.get('has_header') is not True or manifest.get('columns')!=COLUMNS:
             raise ValueError('Expected Kraken seven-column, headered trade archive')
