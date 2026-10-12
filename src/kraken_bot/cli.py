@@ -25,6 +25,13 @@ def emit(value: Any) -> None:
 
 async def run(args: argparse.Namespace) -> None:
     assets = load_assets(args.config)
+    if args.command == "research-pullbacks":
+        from .pullback_study import run_pullback
+        report = await run_pullback(assets, args.archives, args.output, args.minimum_drop)
+        print(json.dumps({"report":str(args.output),"coins":[
+            {k:r[k] for k in ('symbol','last_price','drawdown_from_24h_high_pct','previous_24h_high','historical_analogues','evidence_status')}
+            for r in report['qualified']]},indent=2))
+        return
     if args.command == "research-precision-trades":
         from .precision_trades import run_precision_study
         report = run_precision_study(assets, args.plan, args.net_report,
@@ -191,6 +198,10 @@ def main() -> None:
     ohlc.add_argument("--since", type=int)
     database = argparse.ArgumentParser(add_help=False)
     database.add_argument("--db", type=Path, default=Path("data/market.duckdb"))
+    pullbacks = commands.add_parser("research-pullbacks", help="Current 5% pullbacks with historical recovery/downside evidence")
+    pullbacks.add_argument("--archives", type=Path, nargs='+', default=[Path("data/archives/Kraken_OHLCVT_2026Q2.zip"),Path("data/archives/Kraken_OHLCVT_2026Q3.zip")])
+    pullbacks.add_argument("--minimum-drop", type=float, default=5)
+    pullbacks.add_argument("--output", type=Path, default=Path("data/pullbacks/report.json"))
     precision = commands.add_parser("research-precision-trades", help="Test stricter selection policies with fixed $100 paper trades")
     precision.add_argument("--plan", type=Path, default=Path("config/precision-trade-plan.json"))
     precision.add_argument("--net-report", type=Path, default=Path("data/net-model/report.json"))

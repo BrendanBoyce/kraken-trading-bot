@@ -810,3 +810,45 @@ performance, not proof of zero-error prediction. The quarters were already
 inspected, and bot access/software-managed exits in Funded remain unconfirmed.
 Even a perfect historical validation record cannot guarantee future winners.
 No policy is automatically activated and no live orders are placed.
+
+### Current established-coin pullback evidence
+
+```sh
+kraken-bot --config config/pullback-assets.json research-pullbacks
+```
+
+This is read-only research. The separate manual watchlist includes Polkadot (DOT),
+Cardano, Avalanche and other established projects without changing the collector's
+asset list. Reputation, Funded eligibility and safety are not inferred from that
+list. Public Kraken Ticker and hourly OHLC requests record current prices, trailing
+24-hour highs, quoted spreads and recent completed-bar changes. Kraken's final
+forming OHLC candle is explicitly excluded. Live ticker values are sampled
+sequentially, with a timestamp for each pair.
+
+Pairs at least 5% below their trailing 24-hour highs enter the comparison. That is
+not the same as a 5% rolling daily loss. Recovery means touching that prior high:
+a 5% decline requires a 5.26% gain from the lower price. April–September 1-minute
+archives are aggregated to observed hourly bars, one pair at a time. Each archive
+CSV is parsed strictly and independently because quarterly newline conventions
+can differ. Invalid/duplicate minutes fail instead of being silently padded.
+
+Historical analogues have a prior 24-hour high, a drawdown within two percentage
+points of the current drop (at least 3%), and the same sign of BTC's preceding
+24-hour completed-close return. Eligible decisions are sampled every four hours
+and subsequent same-asset cases are spaced at least 48 hours apart. Outcomes count
+recovery within 24/48 hours and another 3% decline before recovery. If both barriers
+are touched in the same hour, downside is counted first. Incomplete hourly windows
+are skipped. Other-asset cases can remain correlated.
+
+Outputs are `data/pullbacks/report.json`, `.md` and `.snapshot.json`. Counts,
+historical rates, Wilson intervals, source URLs, archive hashes and individual
+cases are retained. Intervals assume independent observations and may understate
+uncertainty. Historical frequencies are not calibrated forecasts; a past high
+can be a temporary spike, and today's macro regime may differ. No fitted recovery
+model or buy/sell recommendation is claimed. Earlier trade-enriched profit models
+answer a different question and cannot be scored honestly with missing current
+trade inputs or used to guarantee a return to an arbitrary prior high.
+
+The main collector database is not opened or changed. No orders are submitted,
+and no costs, execution availability, account equity or Funded bot access are
+assumed by these price-touch statistics.
