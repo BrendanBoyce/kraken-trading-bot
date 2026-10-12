@@ -775,3 +775,38 @@ positions, small calibration week and multiple comparisons limit inference. Mean
 returns per trade do not model capital allocation, account equity, the 3% funded
 failure floor or the probability of passing a challenge. No live collector, strategy
 or order execution changes are made.
+
+### Stricter selections and fixed $100 trade accounting
+
+```sh
+kraken-bot --config config/assets.json research-precision-trades
+```
+
+The command reuses the six saved profit-outcome models, without fitting on later
+data. `config/precision-trade-plan.json` fixes $100 notional per position, diagnostic
+99th/99.5th validation-score percentiles, and empirical validation win-rate gates
+of 95%/100% with at least twenty selected cases. A score percentile is not a win
+probability. Whole score-tie groups stay together. Precision gates cannot select
+below the original validation 95th-percentile threshold; unsupported gates abstain.
+
+June validation is rebuilt with preceding past-data warmup. Its sample count,
+original 95th-percentile cutoff and model artifact hashes must reproduce the prior
+net-model experiment. Later scores/outcomes come from that experiment's saved
+above-cutoff predictions. Every stricter threshold lies within this complete saved
+subset, so missing below-cutoff predictions cannot affect the new comparisons.
+Later P&L never determines a threshold or promotes a model.
+
+Reports are `data/precision-trades/report.json`, `.md` and `.selection.json`.
+Per-position P&L uses a fixed $100 notional and 8/20/50 bps cost sensitivities,
+including all selected winners and losers. Stale timeout marks, unfilled signals,
+known versus stale-mark P&L, simultaneous positions and estimated peak nominal
+capital are explicit. Concurrent entries require $100 each; an exit uses its candle
+end for overlap estimation, and a timeout stays open for its full intended hold.
+
+These are sums of independent simulated position returns, without compounding,
+account equity, available-cash limits or funded challenge pass/fail modelling.
+No starting account balance was assumed. A zero-selection policy has undefined
+performance, not proof of zero-error prediction. The quarters were already
+inspected, and bot access/software-managed exits in Funded remain unconfirmed.
+Even a perfect historical validation record cannot guarantee future winners.
+No policy is automatically activated and no live orders are placed.

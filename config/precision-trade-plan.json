@@ -1,0 +1,14 @@
+{
+  "notional_usd": 100,
+  "diagnostic_validation_quantiles": [0.99, 0.995],
+  "empirical_precision_targets": [0.95, 1.0],
+  "minimum_validation_selections": 20,
+  "selection_cost_bps": 8,
+  "cost_sensitivities_bps": [8, 20, 50],
+  "maximum_selection_scope": "threshold cannot be below the original validation 95th percentile",
+  "positive_definition": "positive net exit at base cost, with an actual entry-minute trade and no stale timeout mark",
+  "unsupported_policy": "abstain",
+  "execution_mode": "offline only",
+  "ready_for_trading": false,
+  "evaluation_status": "Retrospective exploratory test of previously inspected Q2/Q3; no winning-trade guarantees."
+}

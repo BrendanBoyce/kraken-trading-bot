@@ -25,6 +25,14 @@ def emit(value: Any) -> None:
 
 async def run(args: argparse.Namespace) -> None:
     assets = load_assets(args.config)
+    if args.command == "research-precision-trades":
+        from .precision_trades import run_precision_study
+        report = run_precision_study(assets, args.plan, args.net_report,
+            args.training_archive, args.training_db, args.output)
+        print(json.dumps({"report":str(args.output),"results":[
+            {"model":r['model'],"policy":r['policy'],"gate":r['validation_gate'],"later":r['later']}
+            for r in report['results']]},indent=2))
+        return
     if args.command == "research-net-model":
         from .net_model import run_net_model
         report = run_net_model(assets, args.plan, args.filter_plan, args.input_report,
@@ -183,6 +191,12 @@ def main() -> None:
     ohlc.add_argument("--since", type=int)
     database = argparse.ArgumentParser(add_help=False)
     database.add_argument("--db", type=Path, default=Path("data/market.duckdb"))
+    precision = commands.add_parser("research-precision-trades", help="Test stricter selection policies with fixed $100 paper trades")
+    precision.add_argument("--plan", type=Path, default=Path("config/precision-trade-plan.json"))
+    precision.add_argument("--net-report", type=Path, default=Path("data/net-model/report.json"))
+    precision.add_argument("--training-archive", type=Path, default=Path("data/archives/Kraken_OHLCVT_2026Q2.zip"))
+    precision.add_argument("--training-db", type=Path, default=Path("data/trade-features.duckdb"))
+    precision.add_argument("--output", type=Path, default=Path("data/precision-trades/report.json"))
     net = commands.add_parser("research-net-model", help="Train chronological profit-outcome classifiers with fixed exits")
     net.add_argument("--plan", type=Path, default=Path("config/net-model-plan.json"))
     net.add_argument("--filter-plan", type=Path, default=Path("config/filter-study-plan.json"))
