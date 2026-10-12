@@ -1,0 +1,21 @@
+{
+  "targets_pct": [3, 4, 5],
+  "stop_pct": 2,
+  "hold_minutes": 240,
+  "learners": ["logistic", "nonlinear"],
+  "validation_quantiles": [0.95, 0.975],
+  "selection_cost_bps": 8,
+  "cost_sensitivities_bps": [0, 8, 20, 50],
+  "minimum_validation_signals": 20,
+  "minimum_validation_marked_trades": 20,
+  "minimum_validation_positive_returns": 5,
+  "fit_end_utc": "2026-06-24T00:00:00+00:00",
+  "validation_end_utc": "2026-07-01T00:00:00+00:00",
+  "later_test_start_utc": "2026-07-01T00:00:00+00:00",
+  "later_test_end_utc": "2026-10-01T00:00:00+00:00",
+  "cost_source": "https://support.kraken.com/articles/funded",
+  "cost_meaning": "8 bps approximates the documented 0.04% spread each way; additional costs/delay unknown. Not verified Funded fills.",
+  "settings_selection": "Highest positive mean net return per signal on earlier validation, with minimum signal/fill/winner support and no stale timeout marks; ties prefer more signals, smaller target, logistic learner, lower quantile. Abstain if unsupported.",
+  "evaluation_status": "Retrospective exploratory evaluation: both Q2 and Q3 were previously inspected; no fresh holdout or automatic promotion.",
+  "ready_for_trading": false
+}

@@ -25,6 +25,15 @@ def emit(value: Any) -> None:
 
 async def run(args: argparse.Namespace) -> None:
     assets = load_assets(args.config)
+    if args.command == "research-net-model":
+        from .net_model import run_net_model
+        report = run_net_model(assets, args.plan, args.filter_plan, args.input_report,
+            args.filter_report, args.training_archive, args.training_db,
+            args.test_archive, args.test_db, args.output)
+        selected = report['validation_selected_later_result']
+        print(json.dumps({"report": str(args.output), "selected_candidate": report['selection']['selected_candidate'],
+            "selected_later_result": {k:v for k,v in selected.items() if k != 'selected_predictions'} if selected else None}, indent=2))
+        return
     if args.command == "research-exits":
         from .exit_study import run_exit_study
         report = run_exit_study(assets, args.plan, args.filter_plan, args.input_report,
@@ -174,6 +183,16 @@ def main() -> None:
     ohlc.add_argument("--since", type=int)
     database = argparse.ArgumentParser(add_help=False)
     database.add_argument("--db", type=Path, default=Path("data/market.duckdb"))
+    net = commands.add_parser("research-net-model", help="Train chronological profit-outcome classifiers with fixed exits")
+    net.add_argument("--plan", type=Path, default=Path("config/net-model-plan.json"))
+    net.add_argument("--filter-plan", type=Path, default=Path("config/filter-study-plan.json"))
+    net.add_argument("--input-report", type=Path, default=Path("data/threshold-model-input.json"))
+    net.add_argument("--filter-report", type=Path, default=Path("data/filter-study/report.json"))
+    net.add_argument("--training-archive", type=Path, default=Path("data/archives/Kraken_OHLCVT_2026Q2.zip"))
+    net.add_argument("--training-db", type=Path, default=Path("data/trade-features.duckdb"))
+    net.add_argument("--test-archive", type=Path, default=Path("data/archives/Kraken_OHLCVT_2026Q3.zip"))
+    net.add_argument("--test-db", type=Path, default=Path("data/trade-features-Q3.duckdb"))
+    net.add_argument("--output", type=Path, default=Path("data/net-model/report.json"))
     exits = commands.add_parser("research-exits", help="Explore smaller profit targets with gap-aware stop and timeout proxies")
     exits.add_argument("--plan", type=Path, default=Path("config/exit-study-plan.json"))
     exits.add_argument("--filter-plan", type=Path, default=Path("config/filter-study-plan.json"))

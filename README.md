@@ -729,3 +729,49 @@ row or positive average cannot establish readiness; the current asset universe
 was selected later, validation support is small and many settings are compared.
 This command does not alter the live collector, enable model signals, or place
 orders.
+
+### Train for positive net exits rather than +10% high touches
+
+```sh
+kraken-bot --config config/assets.json research-net-model
+```
+
+`config/net-model-plan.json` fixes the experiment before evaluation: 3/4/5% targets,
+a 2% stop, four-hour maximum hold, L2 logistic and shallow histogram-boosting learners,
+and validation-score quantiles 95%/97.5%. No exit optimization is performed on Q3.
+The new classifiers predict a positive return after an 8 bps combined cost proxy,
+including profitable time-limit exits. Training uses April through June 24 with
+label-end purging; June 24–July 1 is reserved for selection/calibration. Neither
+preprocessing nor fitting sees that validation week or the later quarter.
+
+The existing candle/trade features gain past-only BTC/ETH average return, relative
+return and a missing-context flag. Six fitted pipelines and twelve fixed threshold
+candidates are compared using earlier validation only. The selected candidate needs
+at least twenty signals, twenty marked trades, five positive returns, positive mean
+net return per signal and no stale timeout marks. Ties favor more signals, smaller
+targets, logistic regression, then lower quantiles. Unfilled signals stay in the
+sample as nonpositive labels and zero-return decisions instead of being filtered
+using future trading activity. Stale timeout outcomes remain flagged and cannot
+support validation model selection. All selected model scores, pipelines and source
+hashes are retained locally under `data/net-model/`.
+
+The 8 bps proxy approximates Kraken Funded's documented 0.04% spread each way;
+0/8/20/50 bps sensitivities are reported. It is not a verified mapping of Spot archive
+prices to Funded quotes or a promise of fills. Funded is a separate mobile product,
+without advanced order types; bot access remains unconfirmed. Simulated stops
+therefore remain research assumptions. Reference:
+https://support.kraken.com/articles/funded
+
+The selection and frozen cutoffs are written before evaluating Q3 model predictions.
+Original +10% classifier baselines are replayed on the same eligible Q3 windows and
+same smaller-target exit/cost assumptions, alongside an unconditional sample
+baseline. Old selection keys and scores must reproduce the prior filter study.
+Report files are `data/net-model/report.json` and `.md`; fitted models are in `models/`.
+
+Q2 and Q3 have both been inspected in previous experiments, so this is retrospective
+research rather than untouched confirmation. Candidate tables may not be used to
+select another model after seeing Q3 results. The October asset universe, correlated
+positions, small calibration week and multiple comparisons limit inference. Mean
+returns per trade do not model capital allocation, account equity, the 3% funded
+failure floor or the probability of passing a challenge. No live collector, strategy
+or order execution changes are made.
