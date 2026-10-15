@@ -14,3 +14,9 @@ data/
 *.duckdb
 *.duckdb.wal
 *.parquet
+
+# Local document artifacts and CVs must never enter the public repository.
+output/
+tmp/
+*.pdf
+*.docx
